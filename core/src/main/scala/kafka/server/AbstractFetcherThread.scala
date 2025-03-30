@@ -57,7 +57,7 @@ abstract class AbstractFetcherThread(name: String,
                                      val leader: LeaderEndPoint,
                                      failedPartitions: FailedPartitions,
                                      val fetchTierStateMachine: TierStateMachine,
-                                     fetchBackOffMs: Int = 0,
+                                     fetchBackOffMs: Int = 0, // 获取操作重试间隔
                                      isInterruptible: Boolean = true,
                                      val brokerTopicStats: BrokerTopicStats) //BrokerTopicStats's lifecycle managed by ReplicaManager
   extends ShutdownableThread(name, isInterruptible) with Logging {

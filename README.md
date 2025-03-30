@@ -4,6 +4,8 @@ Apache Kafka
 [![CI](https://github.com/apache/kafka/actions/workflows/ci.yml/badge.svg?branch=trunk&event=push)](https://github.com/apache/kafka/actions/workflows/ci.yml?query=event%3Apush+branch%3Atrunk)
 [![Flaky Test Report](https://github.com/apache/kafka/actions/workflows/generate-reports.yml/badge.svg?branch=trunk&event=schedule)](https://github.com/apache/kafka/actions/workflows/generate-reports.yml?query=event%3Aschedule+branch%3Atrunk)
 
+[Kafka学习记录](./Record.md)
+
 See our [web site](https://kafka.apache.org) for details on the project.
 
 You need to have [Java](http://www.oracle.com/technetwork/java/javase/downloads/index.html) installed.
