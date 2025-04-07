@@ -126,6 +126,8 @@ abstract class AbstractFetcherManager[T <: AbstractFetcherThread](val name: Stri
 
   def addFetcherForPartitions(partitionAndOffsets: Map[TopicPartition, InitialFetchState]): Unit = {
     lock synchronized {
+      // {@NOTE: KP-1} 在此处对分区进行了分组，分组的依据是分区的 leader 所在的 broker
+      // {@NOTE: KP-1} 如果配置了num.replica.fetchers，那么会根据topicPartition的hash值对fetcherId进行取模，来确定分区的fetcherId
       val partitionsPerFetcher = partitionAndOffsets.groupBy { case (topicPartition, brokerAndInitialFetchOffset) =>
         BrokerAndFetcherId(brokerAndInitialFetchOffset.leader, getFetcherId(topicPartition))
       }
@@ -137,7 +139,7 @@ abstract class AbstractFetcherManager[T <: AbstractFetcherThread](val name: Stri
         fetcherThread.start()
         fetcherThread
       }
-
+      // {@NOTE: KP-1} 遍历每个broker，将分区添加到对应的fetcher中
       for ((brokerAndFetcherId, initialFetchOffsets) <- partitionsPerFetcher) {
         val brokerIdAndFetcherId = BrokerIdAndFetcherId(brokerAndFetcherId.broker.id, brokerAndFetcherId.fetcherId)
         val fetcherThread = fetcherThreadMap.get(brokerIdAndFetcherId) match {
@@ -150,6 +152,7 @@ abstract class AbstractFetcherManager[T <: AbstractFetcherThread](val name: Stri
           case None =>
             addAndStartFetcherThread(brokerAndFetcherId, brokerIdAndFetcherId)
         }
+        // {@NOTE: KP-1} 将分区添加到fetcher中, 这样fetcher就可以开始拉取对应分区的数据了
         // failed partitions are removed when added partitions to thread
         addPartitionsToFetcherThread(fetcherThread, initialFetchOffsets)
       }

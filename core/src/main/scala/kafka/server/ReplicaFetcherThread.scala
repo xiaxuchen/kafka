@@ -108,6 +108,7 @@ class ReplicaFetcherThread(name: String,
 
     maybeWarnIfOversizedRecords(records, topicPartition)
 
+    // 为什么要检查fetchOffset和logEndOffset是否相等？这里的前置检查似乎也无法避免并发问题吧，毕竟锁住了partitionStates但是没有锁住log
     if (fetchOffset != log.logEndOffset)
       throw new IllegalStateException("Offset mismatch for partition %s: fetched offset = %d, log end offset = %d.".format(
         topicPartition, fetchOffset, log.logEndOffset))

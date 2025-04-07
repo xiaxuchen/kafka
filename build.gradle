@@ -283,7 +283,7 @@ if (repo != null) {
         'gradlew.bat',
         'gradle/wrapper/gradle-wrapper.properties',
         'trogdor/README.md',
-        '**/README.md',
+        '**/*.md',
         '**/id_rsa',
         '**/id_rsa.pub',
         'checkstyle/suppressions.xml',

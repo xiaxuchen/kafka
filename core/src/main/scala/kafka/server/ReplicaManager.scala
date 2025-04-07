@@ -386,6 +386,7 @@ class ReplicaManager(val config: KafkaConfig,
   def startup(): Unit = {
     // start ISR expiration thread
     // A follower can lag behind leader for up to config.replicaLagTimeMaxMs x 1.5 before it is removed from ISR
+    // 定时检查是否需要缩减ISR
     scheduler.schedule("isr-expiration", () => maybeShrinkIsr(), 0L, config.replicaLagTimeMaxMs / 2)
     scheduler.schedule("shutdown-idle-replica-alter-log-dirs-thread", () => shutdownIdleReplicaAlterLogDirsThread(), 0L, 10000L)
 
@@ -672,7 +673,7 @@ class ReplicaManager(val config: KafkaConfig,
     recordValidationStatsCallback(localProduceResults.map { case (k, v) =>
       k -> v.info.recordValidationStats
     })
-
+    // 有些分区可能需要等待acks，所以我们需要在这里添加延迟的produce操作
     maybeAddDelayedProduce(
       requiredAcks,
       delayedProduceLock,
@@ -864,6 +865,8 @@ class ReplicaManager(val config: KafkaConfig,
       () => appendResults.foreach { case (topicOptionalIdPartition, result) =>
         val requestKey = new TopicPartitionOperationKey(topicOptionalIdPartition.topicPartition)
         result.info.leaderHwChange match {
+          // 如果hw变更，那么就可以唤醒一些延迟的请求看看完没完成
+          // 如果hw没变说明LEO变了，那么就需要唤醒一些follower fetch请求看看是否有新的数据可以拉取
           case LeaderHwChange.INCREASED =>
             // some delayed operations may be unblocked after HW changed
             delayedProducePurgatory.checkAndComplete(requestKey)
@@ -1611,6 +1614,8 @@ class ReplicaManager(val config: KafkaConfig,
     //                        1) fetch request does not want to wait
     //                        2) fetch request does not require any data
     //                        3) has enough data to respond
+    //                        // 如果minBytes设置的比较大的话，会需要读取多次才能返回，但是由于消息本身大小不确定，所以不能在读之前知道是否足够
+                              // 难道不能获取当前fetchOffset的物理位点和LEO的物理位点想减来判定吗？
     //                        4) some error happens while reading data
     //                        5) we found a diverging epoch
     //                        6) has a preferred read replica
@@ -1729,6 +1734,7 @@ class ReplicaManager(val config: KafkaConfig,
             preferredReadReplica = preferredReadReplica,
             exception = None)
         } else {
+          // {@Note KP-2} epoch检查
           log = partition.localLogWithEpochOrThrow(fetchInfo.currentLeaderEpoch, params.fetchOnlyLeader())
 
           // Try the read first, this tells us whether we need all of adjustedFetchSize for this partition
@@ -2430,6 +2436,7 @@ class ReplicaManager(val config: KafkaConfig,
 
     // Shrink ISRs for non offline partitions
     allPartitions.keys.foreach { topicPartition =>
+      // 只处理online的partition, 内部加锁后会判定是否是leader, 如果是leader才会处理
       onlinePartition(topicPartition).foreach(_.maybeShrinkIsr())
     }
   }

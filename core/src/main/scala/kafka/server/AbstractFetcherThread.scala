@@ -333,14 +333,15 @@ abstract class AbstractFetcherThread(name: String,
             // In this case, we only want to process the fetch response if the partition state is ready for fetch and
             // the current offset is the same as the offset requested.
             val fetchPartitionData = sessionPartitions.get(topicPartition)
+            // {@Note} 避免历史请求的拉取的offset和本地的offset不一致
             if (fetchPartitionData != null && fetchPartitionData.fetchOffset == currentFetchState.fetchOffset && currentFetchState.isReadyForFetch) {
               Errors.forCode(partitionData.errorCode) match {
                 case Errors.NONE =>
                   try {
                     if (leader.isTruncationOnFetchSupported && FetchResponse.isDivergingEpoch(partitionData)) {
-                      // If a diverging epoch is present, we truncate the log of the replica
+                      // if a diverging epoch is present, we truncate the log of the replica
                       // but we don't process the partition data in order to not update the
-                      // low/high watermarks until the truncation is actually done. Those will
+                      // low/high watermarks until the truncation is actually done. those will
                       // be updated by the next fetch.
                       divergingEndOffsets += topicPartition -> new EpochEndOffset()
                         .setPartition(topicPartition.partition)
@@ -534,7 +535,8 @@ abstract class AbstractFetcherThread(name: String,
   /**
    * Loop through all partitions, updating their fetch offset and maybe marking them as
    * truncation completed if their offsetTruncationState indicates truncation completed
-   *
+   * {@Note }truncate并不是直接在fetch完了之后做的，而是在fetch请求后判断需要truncate，收集需要truncate的partition并更新partitionStates，到下一次循环才会真正truncate并更新partitionStates
+   * {@Note }目前看到只有epoch分叉了才会truncate
    * @param fetchOffsets the partitions to update fetch offset and maybe mark truncation complete
    */
   private def updateFetchOffsetAndMaybeMarkTruncationComplete(fetchOffsets: Map[TopicPartition, OffsetTruncationState]): Unit = {
